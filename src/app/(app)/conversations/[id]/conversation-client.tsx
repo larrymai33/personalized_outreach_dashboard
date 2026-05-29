@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addReplyAndRespond,
@@ -202,6 +202,12 @@ export default function ConversationClient({
   const [tone, setTone] = useState("");
   const [sending, startSending] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // Sync server-refreshed data into local state (router.refresh() updates the prop
+  // but preserves client useState, so we need this effect).
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages]);
 
   function handleDeleteMessage(id: string) {
     setMessages((prev) => prev.filter((m) => m.id !== id));
