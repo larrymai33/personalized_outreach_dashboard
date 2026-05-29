@@ -19,9 +19,6 @@ type OfferingsClientProps = {
 export default function OfferingsClient({ initial }: OfferingsClientProps) {
   const router = useRouter();
 
-  // List state
-  const [offerings, setOfferings] = useState<Offering[]>(initial);
-
   // Per-card delete in-flight tracking
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
@@ -99,7 +96,6 @@ export default function OfferingsClient({ initial }: OfferingsClientProps) {
     try {
       await deleteOffering(id);
       router.refresh();
-      setOfferings((prev) => prev.filter((o) => o.id !== id));
     } catch {
       // surface error via alert as a fallback; could be improved
       alert("Failed to delete offering. Please try again.");
@@ -220,7 +216,7 @@ export default function OfferingsClient({ initial }: OfferingsClientProps) {
       {/* Header row */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-zinc-500">
-          {offerings.length === 0 ? "No offerings yet." : `${offerings.length} offering${offerings.length !== 1 ? "s" : ""}`}
+          {initial.length === 0 ? "No offerings yet." : `${initial.length} offering${initial.length !== 1 ? "s" : ""}`}
         </p>
         {!editorOpen && (
           <button
@@ -233,9 +229,9 @@ export default function OfferingsClient({ initial }: OfferingsClientProps) {
       </div>
 
       {/* Offering cards */}
-      {offerings.length > 0 && (
+      {initial.length > 0 && (
         <ul className="space-y-3">
-          {offerings.map((o) => {
+          {initial.map((o) => {
             const isDeleting = deletingIds.has(o.id);
             const snippet = (o.content ?? "").slice(0, 140);
             return (
