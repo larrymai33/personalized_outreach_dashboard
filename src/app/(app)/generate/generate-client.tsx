@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   generateMessage,
@@ -40,7 +40,6 @@ export default function GenerateClient({ offerings, prompts, prospects }: Props)
   // In-flight states
   const [generating, setGenerating] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const [rating, setRating] = useState<number>(0);
   const [ratingInFlight, setRatingInFlight] = useState(false);
   const [favoriteInFlight, setFavoriteInFlight] = useState(false);
   const [deleteInFlight, setDeleteInFlight] = useState(false);
@@ -49,10 +48,8 @@ export default function GenerateClient({ offerings, prompts, prospects }: Props)
   // Error state
   const [error, setError] = useState<string | null>(null);
 
-  // Sync rating when message changes
-  useEffect(() => {
-    setRating(message?.rating ?? 0);
-  }, [message?.id]);
+  // Derive rating from message (single source of truth — no effect needed)
+  const rating = message?.rating ?? 0;
 
   const canGenerate = !!offeringId && !!promptId && !!prospectId;
   const anyInFlight = generating || regenerating || ratingInFlight || favoriteInFlight || deleteInFlight;
@@ -100,13 +97,12 @@ export default function GenerateClient({ offerings, prompts, prospects }: Props)
   async function handleRate(stars: number) {
     if (!message || ratingInFlight) return;
     setRatingInFlight(true);
-    const prev = rating;
-    setRating(stars);
+    const prevRating = message.rating;
+    setMessage((m) => m ? { ...m, rating: stars } : m);
     try {
       await rateMessage({ id: message.id, rating: stars });
-      setMessage((m) => m ? { ...m, rating: stars } : m);
     } catch (e) {
-      setRating(prev);
+      setMessage((m) => m ? { ...m, rating: prevRating } : m);
       setError(e instanceof Error ? e.message : "Failed to save rating.");
     } finally {
       setRatingInFlight(false);

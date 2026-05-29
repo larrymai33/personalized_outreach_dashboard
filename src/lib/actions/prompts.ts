@@ -58,6 +58,20 @@ export async function updatePrompt(input: { id: string; name?: string; content?:
 export async function deletePrompt(id: string) {
   const u = await requireUser();
   await db.delete(prompts).where(and(eq(prompts.id, id), eq(prompts.userId, u.id)));
+  // If there are remaining prompts but none is the default, promote the most
+  // recently updated one. This handles the case where the deleted prompt was
+  // the default. Sequential statements; no db.transaction (Neon HTTP).
+  const remaining = await db
+    .select()
+    .from(prompts)
+    .where(eq(prompts.userId, u.id))
+    .orderBy(desc(prompts.updatedAt));
+  if (remaining.length > 0 && !remaining.some((p) => p.isDefault)) {
+    await db
+      .update(prompts)
+      .set({ isDefault: true, updatedAt: new Date() })
+      .where(and(eq(prompts.id, remaining[0].id), eq(prompts.userId, u.id)));
+  }
   revalidatePath("/prompts");
 }
 

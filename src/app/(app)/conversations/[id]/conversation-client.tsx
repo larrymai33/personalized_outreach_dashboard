@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addReplyAndRespond,
@@ -197,20 +197,18 @@ export default function ConversationClient({
   initialMessages,
 }: Props) {
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  // Track locally deleted messages so they disappear immediately without waiting
+  // for a server round-trip. router.refresh() updates initialMessages from the
+  // server, so we derive the rendered list from props + this overlay — no effect needed.
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const messages = initialMessages.filter((m) => !deletedIds.has(m.id));
   const [replyText, setReplyText] = useState("");
   const [tone, setTone] = useState("");
   const [sending, startSending] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Sync server-refreshed data into local state (router.refresh() updates the prop
-  // but preserves client useState, so we need this effect).
-  useEffect(() => {
-    setMessages(initialMessages);
-  }, [initialMessages]);
-
   function handleDeleteMessage(id: string) {
-    setMessages((prev) => prev.filter((m) => m.id !== id));
+    setDeletedIds((prev) => new Set(prev).add(id));
   }
 
   async function handleSendReply() {

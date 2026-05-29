@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { it, expect } from "vitest";
 import { buildInitialMessages, buildReplyMessages } from "./build-request";
 
 const offering = { content: "Kakiyo runs LinkedIn conversations for SDRs." };
