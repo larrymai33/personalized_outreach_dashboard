@@ -207,3 +207,86 @@ export async function deleteMessage(id: string) {
 
   revalidatePath(`/conversations/${conv.id}`);
 }
+
+// ---------------------------------------------------------------------------
+// Add a prospect reply then generate the next outbound message.
+// ---------------------------------------------------------------------------
+export async function addReplyAndRespond(input: {
+  conversationId: string;
+  replyText: string;
+  tone?: string;
+}) {
+  const u = await requireUser();
+  const { offering, prompt, prospect, thread } = await loadConversationBundle(
+    input.conversationId,
+    u.id,
+  );
+
+  // Persist the prospect's pasted reply (inbound).
+  await db.insert(messages).values({
+    conversationId: input.conversationId,
+    kind: "inbound",
+    content: input.replyText,
+  });
+
+  // Build the continuation from the FULL thread including the new reply.
+  const fullThread: ThreadMsg[] = [
+    ...thread,
+    { kind: "inbound", content: input.replyText },
+  ];
+
+  const text = await generateText({
+    messages: buildReplyMessages({
+      prompt,
+      offering,
+      prospect,
+      thread: fullThread,
+      tone: input.tone,
+    }),
+  });
+
+  const [msg] = await db
+    .insert(messages)
+    .values({
+      conversationId: input.conversationId,
+      kind: "outbound",
+      content: text,
+      tone: input.tone ?? null,
+      model: process.env.OPENROUTER_MODEL ?? null,
+    })
+    .returning();
+
+  revalidatePath(`/conversations/${input.conversationId}`);
+  return msg;
+}
+
+// ---------------------------------------------------------------------------
+// Load a conversation with full message rows for the thread view.
+// ---------------------------------------------------------------------------
+export async function getConversationView(conversationId: string) {
+  const u = await requireUser();
+
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.id, conversationId),
+        eq(conversations.userId, u.id),
+      ),
+    );
+  if (!conv) throw new Error("Not found");
+
+  const [prospect] = await db
+    .select()
+    .from(prospects)
+    .where(eq(prospects.id, conv.prospectId));
+
+  const msgs = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(asc(messages.createdAt));
+
+  return { conversation: conv, prospect, messages: msgs };
+}
