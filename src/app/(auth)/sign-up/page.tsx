@@ -32,9 +32,15 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 px-4">
+      {/* Brand */}
+      <div className="mb-8 text-center">
+        <span className="text-2xl font-bold tracking-tight text-zinc-900">Outreach</span>
+        <p className="mt-1 text-sm text-zinc-500">Personalized outreach at scale</p>
+      </div>
+
       <div className="w-full max-w-sm bg-white rounded-xl shadow-sm border border-zinc-200 p-8">
-        <h1 className="text-2xl font-semibold text-zinc-900 mb-6">Create account</h1>
+        <h1 className="text-xl font-semibold text-zinc-900 mb-6">Create your account</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <label htmlFor="name" className="text-sm font-medium text-zinc-700">
@@ -82,12 +88,14 @@ export default function SignUpPage() {
             />
           </div>
           {error && (
-            <p className="text-sm text-red-600">{error}</p>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="mt-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? "Creating account…" : "Create account"}
           </button>

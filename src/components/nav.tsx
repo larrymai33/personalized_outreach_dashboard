@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth/auth-client";
 
 const navLinks = [
@@ -14,6 +14,7 @@ const navLinks = [
 
 export default function Nav() {
   const router = useRouter();
+  const pathname = usePathname();
 
   async function handleSignOut() {
     await signOut();
@@ -24,22 +25,39 @@ export default function Nav() {
     <nav className="w-full border-b border-zinc-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
         <div className="flex items-center gap-6">
-          <span className="text-sm font-semibold text-zinc-900">Outreach</span>
+          {/* Brand */}
+          <Link
+            href="/dashboard"
+            className="text-sm font-bold tracking-tight text-zinc-900 hover:text-zinc-700 transition-colors"
+          >
+            Outreach
+          </Link>
+          {/* Nav links */}
           <div className="flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const isActive =
+                link.href === "/dashboard"
+                  ? pathname === "/dashboard"
+                  : pathname.startsWith(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-zinc-900 text-white"
+                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </div>
         </div>
         <button
           onClick={handleSignOut}
-          className="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+          className="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
         >
           Sign out
         </button>
