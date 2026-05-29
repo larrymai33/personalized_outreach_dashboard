@@ -25,7 +25,7 @@ async function call(messages: ChatMessage[], model: string, temperature = 0.8) {
 }
 
 export function generateText(opts: { messages: ChatMessage[]; model?: string; temperature?: number }) {
-  return call(opts.messages, opts.model ?? process.env.OPENROUTER_MODEL ?? "anthropic/claude-3.7-sonnet", opts.temperature);
+  return call(opts.messages, opts.model ?? process.env.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-4.6", opts.temperature);
 }
 
 export function generateFromImage(opts: { instruction: string; dataUrl: string; model?: string }) {
@@ -36,5 +36,5 @@ export function generateFromImage(opts: { instruction: string; dataUrl: string; 
       { type: "image_url", image_url: { url: opts.dataUrl } },
     ],
   }];
-  return call(messages, opts.model ?? process.env.OPENROUTER_VISION_MODEL ?? "openai/gpt-4o", 0.4);
+  return call(messages, opts.model ?? process.env.OPENROUTER_VISION_MODEL ?? "anthropic/claude-sonnet-4.6", 0.4);
 }
