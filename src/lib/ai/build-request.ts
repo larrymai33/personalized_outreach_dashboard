@@ -5,12 +5,16 @@ type Prompt = { content: string };
 type Prospect = { compiledContext: string };
 export type ThreadMsg = { kind: "outbound" | "inbound"; content: string };
 
-function systemMessage(prompt: Prompt, offering: Offering): ChatMessage {
+function systemMessage(prompt: Prompt, offering: Offering, prospect?: Prospect): ChatMessage {
+  const prospectSection = prospect
+    ? `\n\n## Prospect\n${prospect.compiledContext.trim() || "(no prospect details provided)"}`
+    : "";
   return {
     role: "system",
     content:
       `${prompt.content.trim()}\n\n` +
-      `## Your Offering\n${offering.content.trim() || "(no offering details provided)"}\n\n` +
+      `## Your Offering\n${offering.content.trim() || "(no offering details provided)"}` +
+      `${prospectSection}\n\n` +
       `Write as a real human reaching out 1:1. Never sound like a template or mass email. ` +
       `Ground the message in the specific prospect details. Output only the message text.`,
   };
@@ -38,7 +42,7 @@ export function buildReplyMessages(input: {
   tone?: string;
 }): ChatMessage[] {
   const { prompt, offering, prospect, thread, tone } = input;
-  const msgs: ChatMessage[] = [systemMessage(prompt, offering)];
+  const msgs: ChatMessage[] = [systemMessage(prompt, offering, prospect)];
   for (const m of thread) {
     msgs.push({ role: m.kind === "outbound" ? "assistant" : "user", content: m.content });
   }
