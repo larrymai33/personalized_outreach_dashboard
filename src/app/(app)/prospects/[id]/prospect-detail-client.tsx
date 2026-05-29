@@ -124,9 +124,9 @@ export default function ProspectDetailClient({
         setAddError("File must be an image (PNG, JPG, etc.).");
         return;
       }
-      const maxBytes = 5 * 1024 * 1024;
+      const maxBytes = 4 * 1024 * 1024;
       if (file.size > maxBytes) {
-        setAddError("Image must be under 5 MB.");
+        setAddError("Image must be under 4 MB.");
         return;
       }
       setAdding(true);
@@ -271,7 +271,7 @@ export default function ProspectDetailClient({
               LinkedIn screenshot
             </label>
             <p className="text-xs text-zinc-400">
-              Upload a screenshot of the prospect&apos;s LinkedIn profile. PNG or JPG, max 5 MB.
+              Upload a screenshot of the prospect&apos;s LinkedIn profile. PNG or JPG, max 4 MB.
             </p>
             <input
               id="source-screenshot"
