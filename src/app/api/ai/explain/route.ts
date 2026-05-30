@@ -3,6 +3,9 @@ import { getUser } from "@/lib/auth/session";
 import { generateText } from "@/lib/ai/openrouter";
 import { EXPLAINERS, improveInstruction } from "@/lib/ai/explainers";
 
+// Inline AI explain/improve calls the LLM; allow up to 60s.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

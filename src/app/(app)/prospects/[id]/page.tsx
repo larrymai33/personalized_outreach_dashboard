@@ -2,6 +2,9 @@ import Link from "next/link";
 import { getProspect } from "@/lib/actions/prospects";
 import ProspectDetailClient from "./prospect-detail-client";
 
+// Screenshot vision + context recompile chain two AI calls; allow up to 60s for this route's server actions.
+export const maxDuration = 60;
+
 export default async function ProspectDetailPage({
   params,
 }: {

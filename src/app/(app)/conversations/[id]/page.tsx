@@ -2,6 +2,9 @@ import Link from "next/link";
 import { getConversationView } from "@/lib/actions/generation";
 import ConversationClient from "./conversation-client";
 
+// Reply generation calls the LLM with the full thread; allow up to 60s for this route's server actions.
+export const maxDuration = 60;
+
 export default async function ConversationPage({
   params,
 }: {

@@ -3,6 +3,9 @@ import { listPrompts } from "@/lib/actions/prompts";
 import { listProspects } from "@/lib/actions/prospects";
 import GenerateClient from "./generate-client";
 
+// Message generation/regeneration calls the LLM; allow up to 60s for this route's server actions.
+export const maxDuration = 60;
+
 export default async function GeneratePage() {
   const [offerings, prompts, prospects] = await Promise.all([
     listOfferings(),

@@ -1,6 +1,9 @@
 import { listOfferings } from "@/lib/actions/offerings";
 import OfferingsClient from "./offerings-client";
 
+// URL scraping + AI extraction can run several seconds; allow up to 60s for this route's server actions.
+export const maxDuration = 60;
+
 export default async function OfferingsPage() {
   const offerings = await listOfferings();
 
