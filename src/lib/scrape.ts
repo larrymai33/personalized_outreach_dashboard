@@ -59,9 +59,12 @@ export function isPrivateAddress(ip: string): boolean {
 
 /** Parse + DNS-resolve a URL and reject non-http(s) schemes or private targets. */
 async function assertPublicUrl(raw: string): Promise<URL> {
+  // Be forgiving of bare domains like "example.com" by assuming https.
+  const trimmed = raw.trim();
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   let parsed: URL;
   try {
-    parsed = new URL(raw);
+    parsed = new URL(withScheme);
   } catch {
     throw new Error("Invalid URL.");
   }

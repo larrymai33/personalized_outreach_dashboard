@@ -108,7 +108,15 @@ export async function addUrlSource(input: {
 }) {
   const u = await requireUser();
   await verifyProspectOwnership(input.prospectId, u.id);
-  const extracted = await fetchAndExtract(input.url);
+  // A scrape failure (unreachable site, bot-block, etc.) must not block saving the source —
+  // record the URL with a short note so the user can still keep and use it.
+  let extracted: string;
+  try {
+    extracted = await fetchAndExtract(input.url);
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : "unknown error";
+    extracted = `(Could not automatically read ${input.url}: ${reason})`;
+  }
   const [source] = await db
     .insert(prospectSources)
     .values({
