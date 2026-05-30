@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { signIn } from "@/lib/auth/auth-client";
 
 export default function SignInPage() {
@@ -33,7 +34,14 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 px-4">
       {/* Brand */}
-      <div className="mb-8 text-center">
+      <div className="mb-8 flex flex-col items-center text-center">
+        <Image
+          src="/outreach-transparent.png"
+          alt=""
+          width={66}
+          height={66}
+          className="mb-3 h-16 w-16 scale-125 object-contain"
+        />
         <span className="text-2xl font-bold tracking-tight text-zinc-900">Outreach</span>
         <p className="mt-1 text-sm text-zinc-500">Personalized outreach at scale</p>
       </div>

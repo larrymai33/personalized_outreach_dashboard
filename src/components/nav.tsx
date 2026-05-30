@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth/auth-client";
 
@@ -29,9 +30,10 @@ export default function Nav() {
           {/* Brand */}
           <Link
             href="/dashboard"
-            className="text-sm font-bold tracking-tight text-zinc-900 hover:text-zinc-700 transition-colors"
+            className="flex items-center gap-2 text-sm font-bold tracking-tight text-zinc-900 transition-colors hover:text-zinc-700"
           >
-            Outreach
+            <Image src="/outreach-transparent.png" alt="" width={34} height={34} className="h-8 w-8 scale-125 object-contain" />
+            <span>Outreach</span>
           </Link>
           {/* Nav links */}
           <div className="flex items-center gap-1">
