@@ -1,7 +1,7 @@
 "use server";
 import { db } from "@/lib/db";
 import { conversations, messages, offerings, prompts, prospects } from "@/lib/db/schema";
-import { and, eq, asc } from "drizzle-orm";
+import { and, eq, asc, desc, inArray } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import {
@@ -10,6 +10,68 @@ import {
   type ThreadMsg,
 } from "@/lib/ai/build-request";
 import { generateText } from "@/lib/ai/openrouter";
+
+// ---------------------------------------------------------------------------
+// List all of the user's conversations with summary info for the index page.
+// ---------------------------------------------------------------------------
+export async function getConversations() {
+  const u = await requireUser();
+  const convs = await db
+    .select({
+      id: conversations.id,
+      title: conversations.title,
+      createdAt: conversations.createdAt,
+      prospectId: conversations.prospectId,
+      prospectName: prospects.name,
+      offeringName: offerings.name,
+    })
+    .from(conversations)
+    .innerJoin(prospects, eq(conversations.prospectId, prospects.id))
+    .leftJoin(offerings, eq(conversations.offeringId, offerings.id))
+    .where(eq(conversations.userId, u.id))
+    .orderBy(desc(conversations.createdAt));
+
+  if (convs.length === 0) return [];
+
+  // One query for all messages in these (already user-scoped) conversations.
+  const convIds = convs.map((c) => c.id);
+  const msgs = await db
+    .select()
+    .from(messages)
+    .where(inArray(messages.conversationId, convIds))
+    .orderBy(asc(messages.createdAt));
+
+  const agg = new Map<
+    string,
+    { count: number; replies: number; lastContent: string; lastAt: Date }
+  >();
+  for (const m of msgs) {
+    const e = agg.get(m.conversationId) ?? {
+      count: 0,
+      replies: 0,
+      lastContent: "",
+      lastAt: m.createdAt,
+    };
+    e.count += 1;
+    if (m.kind === "inbound") e.replies += 1;
+    e.lastContent = m.content; // ordered asc, so the final write is the newest
+    e.lastAt = m.createdAt;
+    agg.set(m.conversationId, e);
+  }
+
+  return convs
+    .map((c) => {
+      const e = agg.get(c.id);
+      return {
+        ...c,
+        messageCount: e?.count ?? 0,
+        hasReplies: (e?.replies ?? 0) > 0,
+        lastSnippet: e ? e.lastContent.slice(0, 140) : "",
+        lastAt: e?.lastAt ?? c.createdAt,
+      };
+    })
+    .sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
+}
 
 // ---------------------------------------------------------------------------
 // Internal shared loader — exported so Task 18 (reply flow) can reuse it.

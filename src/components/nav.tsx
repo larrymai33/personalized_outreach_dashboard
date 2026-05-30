@@ -10,6 +10,7 @@ const navLinks = [
   { href: "/prompts", label: "Prompts" },
   { href: "/prospects", label: "Prospects" },
   { href: "/generate", label: "Generate" },
+  { href: "/conversations", label: "Conversations" },
 ];
 
 export default function Nav() {
