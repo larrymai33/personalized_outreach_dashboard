@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAnalytics } from "@/lib/actions/analytics";
+import { ActivityLineChart } from "./activity-line-chart";
 
 type BarItem = {
   id: string;
@@ -96,66 +97,6 @@ function BarList({
           ))}
         </ul>
       )}
-    </section>
-  );
-}
-
-function ActivityChart({
-  days,
-}: {
-  days: { date: string; label: string; outbound: number; inbound: number }[];
-}) {
-  const max = days.reduce((highest, day) => Math.max(highest, day.outbound + day.inbound), 1);
-
-  return (
-    <section className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-200">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-950">Activity over 14 days</h2>
-          <p className="mt-1 text-sm text-zinc-500">Outbound messages and pasted replies.</p>
-        </div>
-        <div className="flex items-center gap-3 text-xs text-zinc-500">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-zinc-900" />
-            Generated
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-            Replies
-          </span>
-        </div>
-      </div>
-      <div className="mt-6 flex h-48 items-end gap-2">
-        {days.map((day) => {
-          const outboundHeight = Math.round((day.outbound / max) * 100);
-          const inboundHeight = Math.round((day.inbound / max) * 100);
-          const total = day.outbound + day.inbound;
-
-          return (
-            <div key={day.date} className="group flex min-w-0 flex-1 flex-col items-center gap-2">
-              <div className="flex h-36 w-full max-w-8 items-end justify-center overflow-hidden rounded-t-md bg-zinc-50">
-                {total === 0 ? (
-                  <div className="h-1 w-full rounded-t-sm bg-zinc-200" />
-                ) : (
-                  <div className="flex w-full flex-col justify-end">
-                    <div
-                      className="w-full bg-emerald-500"
-                      style={{ height: `${Math.max(inboundHeight, day.inbound > 0 ? 5 : 0)}%` }}
-                      title={`${formatNumber(day.inbound)} replies`}
-                    />
-                    <div
-                      className="w-full rounded-t-sm bg-zinc-900"
-                      style={{ height: `${Math.max(outboundHeight, day.outbound > 0 ? 5 : 0)}%` }}
-                      title={`${formatNumber(day.outbound)} generated`}
-                    />
-                  </div>
-                )}
-              </div>
-              <span className="hidden text-[11px] text-zinc-400 sm:block">{day.label}</span>
-            </div>
-          );
-        })}
-      </div>
     </section>
   );
 }
@@ -303,7 +244,7 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <ActivityChart days={a.activityByDay} />
+      <ActivityLineChart days={a.activityByDay} />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Funnel
