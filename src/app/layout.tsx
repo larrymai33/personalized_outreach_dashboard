@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   title: "Outreach - AI Personalized Outreach Dashboard",
   description:
     "Generate personalized cold outreach messages, manage prospect conversations, and write contextual replies with AI.",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({
