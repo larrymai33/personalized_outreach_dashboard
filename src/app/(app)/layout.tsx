@@ -8,9 +8,11 @@ export default async function AppLayout({
 }) {
   await requireUser();
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-[#f8faf9]">
       <Nav />
-      <main className="flex-1 mx-auto w-full max-w-7xl px-6 py-8">{children}</main>
+      <main className="min-h-screen px-4 py-6 sm:px-6 lg:ml-28 lg:px-10 lg:py-8">
+        {children}
+      </main>
     </div>
   );
 }

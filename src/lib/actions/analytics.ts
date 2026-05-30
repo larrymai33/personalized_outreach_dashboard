@@ -11,6 +11,12 @@ type Analytics = {
   prospectCount: number;
   conversationsWithReplies: number;
   replyRate: number;
+  metricTrends: {
+    prospects: TrendMetric;
+    conversations: TrendMetric;
+    conversationsWithReplies: TrendMetric;
+    replyRate: TrendMetric;
+  };
   favoriteCount: number;
   ratedCount: number;
   averageRating: number | null;
@@ -21,6 +27,11 @@ type Analytics = {
   ratingDistribution: { rating: number; count: number }[];
   toneUsage: { tone: string; count: number }[];
   topProspects: { prospectId: string; name: string; outbound: number; inbound: number }[];
+};
+
+type TrendMetric = {
+  change: number | null;
+  series: number[];
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -45,6 +56,27 @@ function dayLabel(date: Date) {
 
 function normalizeTone(tone: string | null) {
   return tone?.trim().replace(/\s+/g, " ").slice(0, 40);
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function startOfLocalDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function percentChange(current: number, previous: number): number | null {
+  if (previous === 0) return current > 0 ? null : 0;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+function countDatesInRange(dates: Date[], start: Date, end: Date) {
+  return dates.filter((date) => date >= start && date < end).length;
 }
 
 export async function getAnalytics(): Promise<Analytics> {
@@ -158,6 +190,19 @@ export async function getAnalytics(): Promise<Analytics> {
     .where(eq(prospects.userId, u.id))
     .groupBy(prospectSources.type);
 
+  const prospectRows = await db
+    .select({ createdAt: prospects.createdAt })
+    .from(prospects)
+    .where(eq(prospects.userId, u.id));
+
+  const conversationRows = await db
+    .select({
+      id: conversations.id,
+      createdAt: conversations.createdAt,
+    })
+    .from(conversations)
+    .where(eq(conversations.userId, u.id));
+
   const favoriteCount = messageRows.filter((m) => m.isFavorite).length;
   const ratings = messageRows
     .map((m) => m.rating)
@@ -170,8 +215,12 @@ export async function getAnalytics(): Promise<Analytics> {
     ? Math.round((totalMessages / prospectCount) * 10) / 10
     : 0;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = startOfLocalDay(new Date());
+  const currentStart = addDays(today, -13);
+  const currentEnd = addDays(today, 1);
+  const previousStart = addDays(currentStart, -14);
+  const previousEnd = currentStart;
+
   const activityByDay = Array.from({ length: 14 }, (_, index) => {
     const date = new Date(today);
     date.setDate(today.getDate() - (13 - index));
@@ -216,6 +265,70 @@ export async function getAnalytics(): Promise<Analytics> {
     }
   }
 
+  // Use the first inbound message date per conversation so one long thread counts as one replied conversation.
+  const replyRows = await db
+    .select({
+      conversationId: messages.conversationId,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+    .where(and(eq(conversations.userId, u.id), eq(messages.kind, "inbound")));
+
+  const firstReplyDates = new Map<string, Date>();
+  for (const row of replyRows) {
+    const existing = firstReplyDates.get(row.conversationId);
+    if (!existing || row.createdAt < existing) {
+      firstReplyDates.set(row.conversationId, row.createdAt);
+    }
+  }
+
+  const prospectDates = prospectRows.map((row) => row.createdAt);
+  const conversationDates = conversationRows.map((row) => row.createdAt);
+  const replyDates = [...firstReplyDates.values()];
+
+  const currentProspects = countDatesInRange(prospectDates, currentStart, currentEnd);
+  const previousProspects = countDatesInRange(prospectDates, previousStart, previousEnd);
+  const currentConversations = countDatesInRange(conversationDates, currentStart, currentEnd);
+  const previousConversations = countDatesInRange(conversationDates, previousStart, previousEnd);
+  const currentReplies = countDatesInRange(replyDates, currentStart, currentEnd);
+  const previousReplies = countDatesInRange(replyDates, previousStart, previousEnd);
+  const currentReplyRate = currentConversations > 0 ? (currentReplies / currentConversations) * 100 : 0;
+  const previousReplyRate = previousConversations > 0 ? (previousReplies / previousConversations) * 100 : 0;
+
+  const prospectSeries = activityByDay.map((day) =>
+    prospectDates.filter((date) => dayKey(date) === day.date).length,
+  );
+  const conversationSeries = activityByDay.map((day) =>
+    conversationDates.filter((date) => dayKey(date) === day.date).length,
+  );
+  const replySeries = activityByDay.map((day) =>
+    replyDates.filter((date) => dayKey(date) === day.date).length,
+  );
+  const replyRateSeries = activityByDay.map((day, index) => {
+    const conversationsForDay = conversationSeries[index];
+    return conversationsForDay > 0 ? Math.round((replySeries[index] / conversationsForDay) * 100) : 0;
+  });
+
+  const metricTrends = {
+    prospects: {
+      change: percentChange(currentProspects, previousProspects),
+      series: prospectSeries,
+    },
+    conversations: {
+      change: percentChange(currentConversations, previousConversations),
+      series: conversationSeries,
+    },
+    conversationsWithReplies: {
+      change: percentChange(currentReplies, previousReplies),
+      series: replySeries,
+    },
+    replyRate: {
+      change: percentChange(currentReplyRate, previousReplyRate),
+      series: replyRateSeries,
+    },
+  };
+
   const sourceBreakdown = sourceRows
     .map((row) => ({
       type: row.type,
@@ -240,6 +353,7 @@ export async function getAnalytics(): Promise<Analytics> {
     prospectCount,
     conversationsWithReplies,
     replyRate,
+    metricTrends,
     favoriteCount,
     ratedCount,
     averageRating,
