@@ -8,7 +8,7 @@ const MAX_BYTES = 2_500_000;
 // Pure-JS HTML → text. We deliberately avoid jsdom/Readability: jsdom pulls in
 // native/ESM-only deps that fail to load in serverless (Vercel) functions. The AI
 // extraction step handles any remaining boilerplate, so a clean text dump is enough.
-export function extractReadableText(html: string, _url: string): string {
+export function extractReadableText(html: string): string {
   const root = parse(html, { comment: false });
   root
     .querySelectorAll("script, style, noscript, nav, header, footer, svg, iframe, form")
@@ -155,6 +155,6 @@ export async function fetchAndExtract(url: string): Promise<string> {
     }
   }
 
-  const { body, finalUrl } = await safeFetch(url);
-  return extractReadableText(body, finalUrl);
+  const { body } = await safeFetch(url);
+  return extractReadableText(body);
 }
