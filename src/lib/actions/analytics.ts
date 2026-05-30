@@ -1,15 +1,48 @@
 "use server";
 import { db } from "@/lib/db";
-import { conversations, messages, prospects, offerings } from "@/lib/db/schema";
+import { conversations, messages, prospects, offerings, prospectSources } from "@/lib/db/schema";
 import { and, eq, count, countDistinct, desc } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/session";
 
 type Analytics = {
   totalMessages: number;
+  inboundMessages: number;
+  conversationCount: number;
   prospectCount: number;
   conversationsWithReplies: number;
+  replyRate: number;
+  favoriteCount: number;
+  ratedCount: number;
+  averageRating: number | null;
+  averageOutboundPerProspect: number;
   offeringUsage: { offeringId: string; name: string; count: number }[];
+  sourceBreakdown: { type: string; label: string; count: number }[];
+  activityByDay: { date: string; label: string; outbound: number; inbound: number }[];
+  ratingDistribution: { rating: number; count: number }[];
+  toneUsage: { tone: string; count: number }[];
+  topProspects: { prospectId: string; name: string; outbound: number; inbound: number }[];
 };
+
+const SOURCE_LABELS: Record<string, string> = {
+  linkedin_screenshot: "LinkedIn screenshots",
+  github_url: "GitHub URLs",
+  website_url: "Websites",
+  company_url: "Company sites",
+  other_url: "Other URLs",
+  note: "Notes",
+};
+
+function dayKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function dayLabel(date: Date) {
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function normalizeTone(tone: string | null) {
+  return tone?.trim().replace(/\s+/g, " ").slice(0, 40);
+}
 
 export async function getAnalytics(): Promise<Analytics> {
   const u = await requireUser();
@@ -27,14 +60,34 @@ export async function getAnalytics(): Promise<Analytics> {
     );
   const totalMessages = Number(totalRow?.value ?? 0);
 
-  // 2. Count the user's prospects
+  // 2. Count inbound messages in the user's conversations
+  const [inboundRow] = await db
+    .select({ value: count() })
+    .from(messages)
+    .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+    .where(
+      and(
+        eq(conversations.userId, u.id),
+        eq(messages.kind, "inbound"),
+      ),
+    );
+  const inboundMessages = Number(inboundRow?.value ?? 0);
+
+  // 3. Count the user's prospects
   const [prospectRow] = await db
     .select({ value: count() })
     .from(prospects)
     .where(eq(prospects.userId, u.id));
   const prospectCount = Number(prospectRow?.value ?? 0);
 
-  // 3. Count distinct conversations that have >= 1 inbound message
+  // 4. Count the user's conversations
+  const [conversationRow] = await db
+    .select({ value: count() })
+    .from(conversations)
+    .where(eq(conversations.userId, u.id));
+  const conversationCount = Number(conversationRow?.value ?? 0);
+
+  // 5. Count distinct conversations that have >= 1 inbound message
   const [repliesRow] = await db
     .select({ value: countDistinct(messages.conversationId) })
     .from(messages)
@@ -46,8 +99,11 @@ export async function getAnalytics(): Promise<Analytics> {
       ),
     );
   const conversationsWithReplies = Number(repliesRow?.value ?? 0);
+  const replyRate = conversationCount > 0
+    ? Math.round((conversationsWithReplies / conversationCount) * 100)
+    : 0;
 
-  // 4. Outbound messages per offering (left join so zero-usage offerings appear)
+  // 6. Outbound messages per offering (left join so zero-usage offerings appear)
   const usageRows = await db
     .select({
       offeringId: offerings.id,
@@ -73,5 +129,123 @@ export async function getAnalytics(): Promise<Analytics> {
     count: Number(r.count),
   }));
 
-  return { totalMessages, prospectCount, conversationsWithReplies, offeringUsage };
+  const messageRows = await db
+    .select({
+      id: messages.id,
+      kind: messages.kind,
+      tone: messages.tone,
+      rating: messages.rating,
+      isFavorite: messages.isFavorite,
+      createdAt: messages.createdAt,
+      prospectId: prospects.id,
+      prospectName: prospects.name,
+    })
+    .from(messages)
+    .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+    .innerJoin(prospects, eq(conversations.prospectId, prospects.id))
+    .where(eq(conversations.userId, u.id));
+
+  const sourceRows = await db
+    .select({
+      type: prospectSources.type,
+      count: count(prospectSources.id),
+    })
+    .from(prospectSources)
+    .innerJoin(prospects, eq(prospectSources.prospectId, prospects.id))
+    .where(eq(prospects.userId, u.id))
+    .groupBy(prospectSources.type);
+
+  const favoriteCount = messageRows.filter((m) => m.isFavorite).length;
+  const ratings = messageRows
+    .map((m) => m.rating)
+    .filter((rating): rating is number => typeof rating === "number");
+  const ratedCount = ratings.length;
+  const averageRating = ratedCount > 0
+    ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratedCount) * 10) / 10
+    : null;
+  const averageOutboundPerProspect = prospectCount > 0
+    ? Math.round((totalMessages / prospectCount) * 10) / 10
+    : 0;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const activityByDay = Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (13 - index));
+    return {
+      date: dayKey(date),
+      label: dayLabel(date),
+      outbound: 0,
+      inbound: 0,
+    };
+  });
+  const activityIndex = new Map(activityByDay.map((day, index) => [day.date, index]));
+
+  const ratingDistribution = [1, 2, 3, 4, 5].map((rating) => ({ rating, count: 0 }));
+  const toneCounts = new Map<string, number>();
+  const prospectCounts = new Map<string, { prospectId: string; name: string; outbound: number; inbound: number }>();
+
+  for (const message of messageRows) {
+    const key = dayKey(message.createdAt);
+    const index = activityIndex.get(key);
+    if (index !== undefined) {
+      if (message.kind === "outbound") activityByDay[index].outbound += 1;
+      if (message.kind === "inbound") activityByDay[index].inbound += 1;
+    }
+
+    if (typeof message.rating === "number" && message.rating >= 1 && message.rating <= 5) {
+      ratingDistribution[message.rating - 1].count += 1;
+    }
+
+    const currentProspect = prospectCounts.get(message.prospectId) ?? {
+      prospectId: message.prospectId,
+      name: message.prospectName,
+      outbound: 0,
+      inbound: 0,
+    };
+    if (message.kind === "outbound") currentProspect.outbound += 1;
+    if (message.kind === "inbound") currentProspect.inbound += 1;
+    prospectCounts.set(message.prospectId, currentProspect);
+
+    const tone = normalizeTone(message.tone);
+    if (message.kind === "outbound" && tone) {
+      toneCounts.set(tone, (toneCounts.get(tone) ?? 0) + 1);
+    }
+  }
+
+  const sourceBreakdown = sourceRows
+    .map((row) => ({
+      type: row.type,
+      label: SOURCE_LABELS[row.type] ?? row.type,
+      count: Number(row.count),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const toneUsage = [...toneCounts.entries()]
+    .map(([tone, count]) => ({ tone, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const topProspects = [...prospectCounts.values()]
+    .sort((a, b) => (b.outbound + b.inbound) - (a.outbound + a.inbound))
+    .slice(0, 5);
+
+  return {
+    totalMessages,
+    inboundMessages,
+    conversationCount,
+    prospectCount,
+    conversationsWithReplies,
+    replyRate,
+    favoriteCount,
+    ratedCount,
+    averageRating,
+    averageOutboundPerProspect,
+    offeringUsage,
+    sourceBreakdown,
+    activityByDay,
+    ratingDistribution,
+    toneUsage,
+    topProspects,
+  };
 }
