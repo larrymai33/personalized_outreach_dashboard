@@ -1,22 +1,22 @@
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
+import { parse } from "node-html-parser";
 import dns from "node:dns/promises";
 
 const MAX_REDIRECTS = 5;
 const TIMEOUT_MS = 12000;
 const MAX_BYTES = 2_500_000;
 
-export function extractReadableText(html: string, url: string): string {
-  const dom = new JSDOM(html, { url });
-  const reader = new Readability(dom.window.document);
-  const article = reader.parse();
-  if (article?.textContent && article.textContent.trim().length > 0) {
-    return article.textContent.replace(/\s+/g, " ").trim().slice(0, 12000);
-  }
-  // Fallback: remove script/style elements first, then read body text
-  const doc = dom.window.document;
-  doc.querySelectorAll("script, style").forEach((el) => el.remove());
-  const text = (doc.body?.textContent ?? "").replace(/\s+/g, " ").trim();
+// Pure-JS HTML → text. We deliberately avoid jsdom/Readability: jsdom pulls in
+// native/ESM-only deps that fail to load in serverless (Vercel) functions. The AI
+// extraction step handles any remaining boilerplate, so a clean text dump is enough.
+export function extractReadableText(html: string, _url: string): string {
+  const root = parse(html, { comment: false });
+  root
+    .querySelectorAll("script, style, noscript, nav, header, footer, svg, iframe, form")
+    .forEach((el) => el.remove());
+  const text = (root.querySelector("main")?.structuredText || root.structuredText || "")
+    .replace(/[ \t\f\v]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
   return text.slice(0, 12000);
 }
 
