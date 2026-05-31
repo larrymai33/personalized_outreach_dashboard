@@ -24,6 +24,49 @@ context-aware follow-up in the same voice.
 - **Analytics** — live counts: messages generated, prospects saved, conversations with
   replies, and per-offering usage.
 
+## Examples
+
+Same prospect, same offering — three different tones showing what the model actually produces.
+
+**Prospect:** Larry Mai — LLM training infra (Mercor), 5G Layer 3 (Corning), live side projects (Ochtagon scoring engine, UFC pick-em), currently open to work.  
+**Offering:** Kakiyo — AI outreach tool for LinkedIn.
+
+---
+
+**Default tone**
+
+> Hey Larry,
+>
+> The combo of LLM training infra at Mercor and 5G Layer 3 work at Corning is genuinely rare — most people sit firmly on one side of that fence. The Ochtagon live scoring engine is a nice touch too.
+>
+> I'm reaching out because I run Kakiyo, an AI outreach tool for LinkedIn — but honestly, that's not why I'm messaging you. We're looking for engineers who've worked close to LLM pipelines and actually care about infrastructure quality, not just model hype. Your Pytest coverage work and the Docker environment pinning caught my attention specifically.
+>
+> We're early-stage and moving fast — the kind of place where what you ship this week is live next week.
+>
+> Not sure if you're open to something like this alongside the Georgia Tech path you're building toward, but would it be worth a quick conversation to see if there's any overlap?
+
+---
+
+**Tone: "more direct, mention pricing"**
+
+> Hey Larry,
+>
+> Saw you're currently open to work — and honestly, your background is the kind that should have recruiters and hiring managers lining up. LLM infra experience at Mercor *plus* 5G protocol work at Corning is a genuinely rare combo, and you've got live projects to back it all up.
+>
+> That said, job searching on LinkedIn is a grind, and most people either send mass messages that get ignored or spend hours personalizing one by one.
+>
+> I built Kakiyo for exactly that — it runs real, two-way AI conversations on LinkedIn at scale, handles replies, and books meetings autonomously. No templates, no Chrome extension, no account risk. Plans start around $99/month, and most users recoup that in the first week of saved time.
+>
+> Might be worth a look while you're actively searching. Would it be useful to see how it works for job seekers specifically?
+
+---
+
+**Tone: "short one sentence only"**
+
+> Cutting environment setup time by 70% at Mercor while also shipping a live UFC pick-em platform on the side — are you finding that the right roles are actually finding you, or is the search still pretty manual?
+
+---
+
 ## Tech stack
 
 Next.js 16 (App Router) · TypeScript · Tailwind v4 · Drizzle ORM · Neon Postgres ·
