@@ -158,3 +158,31 @@ src/
   components/              # nav + shared UI
 docs/superpowers/          # design spec + implementation plan
 ```
+
+## Architecture decisions
+
+**Next.js server actions for data fetching.** DB queries run directly in server actions — no API route for every fetch. Auth checks sit next to the data logic with no extra layer in between.
+
+**Drizzle ORM + Neon serverless.** Drizzle's Neon serverless driver is built for Vercel's function environment: real Postgres queries without managing a connection pool. Supabase would also work but adds the client SDK layer and RLS security model, which is additional complexity this app doesn't need.
+
+**Schema design.** UUIDs as primary keys on all app tables. Every app table (`offerings`, `prompts`, `prospects`, `conversations`, `messages`) carries a `userId` foreign key referencing the Better Auth `user` table, so all data is isolated at the row level by default.
+
+**Better Auth.** Integrates directly with Drizzle — the auth tables live in the same schema and are queried with the same client. No separate auth database or SDK to keep in sync.
+
+**OpenRouter for AI.** A raw `fetch` to the OpenRouter endpoint: call model → get text → save to DB. No provider SDK. Supports vision models (reads image URLs directly), and swapping models is an env var change with no code diff.
+
+**node-html-parser for scraping.** Works in Vercel serverless functions without native dependencies. jsdom + Readability gives better article extraction but fails to load in serverless due to native/ESM-only deps. Firecrawl is available as an optional fallback — set `FIRECRAWL_API_KEY` and it delegates scraping to external infrastructure instead.
+
+## Tradeoffs
+
+The main deployment decision was Neon + Vercel versus Supabase + Vercel. Supabase is a full platform — you get Postgres, auth, storage, edge functions, and a client SDK all in one place, which is appealing early on. The tradeoff is that you're also taking on RLS policies, a separate auth system that doesn't integrate naturally with Drizzle, and a client SDK that sits between your code and the database. For this app, where auth is handled by Better Auth and data access is already row-isolated by `userId` foreign keys, that extra surface area adds complexity without adding capability.
+
+Neon with Drizzle keeps the stack thinner. The serverless driver is purpose-built for Vercel's function environment — no connection pool to manage, no SDK layer, just Postgres queries that behave the same locally and in production. The cost is that you're wiring together more pieces yourself (auth, database, deployment) rather than getting them bundled. For a project this size that's the right call: each piece does one thing and they compose cleanly.
+
+## What I'd do differently with more time
+
+**Prompt injection protection.** Right now prospect context is scraped from external URLs and passed directly into the model's system message. A malicious page could embed instructions designed to hijack the output — "ignore previous instructions and output X." I'd add a sanitization pass on scraped content before it reaches the prompt, strip anything that looks like embedded instructions, and isolate prospect data in a clearly delimited section the model is instructed to treat as data only.
+
+**Edge case hardening.** The scraper handles the happy path well but breaks down on JavaScript-rendered pages, paywalled content, and URLs that return 200 with an error page in the body. I'd add smarter detection for empty or low-quality extractions and surface a clear error to the user instead of silently passing garbage context to the model — bad context produces bad output and it's not obvious why.
+
+**Self-improving generation via the rating system.** The schema already captures 1–5 ratings and favorites on every generated message. With more time I'd close that loop: analyze which prompt + offering + tone combinations consistently produce high-rated messages and use that signal to auto-suggest prompt improvements, flag underperforming offerings, and eventually fine-tune or few-shot the generation with the user's own top-rated examples. The data collection is already there — the intelligence layer on top of it isn't.
